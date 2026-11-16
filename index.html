@@ -185,7 +185,7 @@ body{background:var(--bg);color:var(--txt);min-height:100vh;display:flex}
 /* IMAGE POPUP */
 .img-pop{position:relative;max-width:90vw;max-height:90vh;display:flex;flex-direction:column;align-items:center;animation:imgPopIn .18s ease}
 @keyframes imgPopIn{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
-.img-pop img{max-width:min(80vw,560px);max-height:70vh;object-fit:contain;border-radius:14px;background:#fff;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.4)}
+.img-pop img{width:min(90vw,720px);height:min(70vh,520px);max-width:none;max-height:none;object-fit:contain;border-radius:14px;background:#fff;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.4)}
 .img-pop-cap{margin-top:12px;color:#fff;font-size:13px;font-weight:600;text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.5)}
 .img-pop-close{position:absolute;top:-14px;right:-14px;width:34px;height:34px;border-radius:50%;background:#fff;color:var(--txt);border:none;cursor:pointer;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.3);transition:transform .12s}
 .img-pop-close:hover{transform:scale(1.08);background:var(--lo-bg);color:#C62828}
@@ -226,6 +226,15 @@ body{background:var(--bg);color:var(--txt);min-height:100vh;display:flex}
 .otab.active .otab-cnt{background:var(--bm);color:#fff}
 .sb-logo-txt{font-size:16px;font-weight:700;color:#fff;letter-spacing:.01em}
 .otab #lnkLogo{height:22px}
+.zoom-wrap{overflow:hidden;border-radius:14px;touch-action:none;cursor:zoom-in;display:flex;box-shadow:0 24px 60px rgba(0,0,0,.4);background:#fff}
+.zoom-wrap img{box-shadow:none!important;border-radius:0!important;transform-origin:center center;user-select:none;-webkit-user-drag:none;will-change:transform}
+.zoom-bar{display:flex;align-items:center;gap:8px;margin-top:12px;background:rgba(0,0,0,.45);padding:6px 10px;border-radius:24px}
+.zoom-bar button{min-width:34px;height:30px;border-radius:15px;border:none;background:rgba(255,255,255,.18);color:#fff;font-size:18px;font-weight:700;cursor:pointer;padding:0 10px}
+.zoom-bar button:hover{background:rgba(255,255,255,.35)}
+.zoom-bar span{color:#fff;font-size:12px;font-weight:700;min-width:44px;text-align:center}
+.zoom-hint{margin-top:8px;color:rgba(255,255,255,.7);font-size:11px;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.cz-badge{position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;pointer-events:none;z-index:3}
+.ct img{transition:transform .08s ease-out}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -362,8 +371,15 @@ body{background:var(--bg);color:var(--txt);min-height:100vh;display:flex}
 <div class="mov" id="imgPopOv" style="display:none" onclick="if(event.target===this)closeImgPopup()">
   <div class="img-pop">
     <button class="img-pop-close" onclick="closeImgPopup()">✕</button>
-    <img id="imgPopSrc" src="" alt="">
+    <div class="zoom-wrap" id="zoomWrap"><img id="imgPopSrc" src="" alt="" draggable="false"></div>
     <div class="img-pop-cap" id="imgPopCap"></div>
+    <div class="zoom-bar">
+      <button onclick="zoomBy(1/1.3)" title="ซูมออก">−</button>
+      <span id="zoomPct">100%</span>
+      <button onclick="zoomBy(1.3)" title="ซูมเข้า">+</button>
+      <button onclick="zoomReset()" title="รีเซ็ต" style="font-size:14px">⟲ รีเซ็ต</button>
+    </div>
+    <div class="zoom-hint">เลื่อนล้อเมาส์เพื่อซูม · ลากเพื่อเลื่อนรูป · ดับเบิลคลิกเพื่อซูมเข้า/ออก</div>
   </div>
 </div>
 
@@ -613,7 +629,7 @@ function fp(){
     const c=cc(p),cp=cpill(p);
     const pinPill=p.has_pin?`<span class="pin-dot">📌 ${p.pcs}</span>`:'';
     const imgPart=p.img
-      ?`<div class="ct ${c}"><span class="cpill ${cp}">${p.cat}</span>${pinPill}<img src="${p.img}" style="width:100%;height:100%;object-fit:contain;padding:10px"></div>`
+      ?`<div class="ct ${c}"><span class="cpill ${cp}">${p.cat}</span>${pinPill}<img src="${p.img}" alt="${(p.name+' — '+p.pn).replace(/"/g,'&quot;')}" title="คลิก = ดูรูปขยาย · เลื่อนล้อเมาส์ = ซูมเข้า/ออก" onclick="event.stopPropagation();showImgPopup(this.src,this.alt)" style="width:100%;height:100%;object-fit:contain;padding:10px;cursor:zoom-in"></div>`
       :`<div class="ct ${c}"><span class="cpill ${cp}">${p.cat}</span>${pinPill}<span class="ph">📦</span></div>`;
     const badge=p.has_pin
       ?`<span class="badge b-pin">📌 ${p.pcs} ชิ้น · ${gl(p)}</span>`
@@ -751,11 +767,56 @@ function backToTable(){document.getElementById('detWrap').style.display='none';d
 
 // ── IMAGE POPUP ────────────────────────────────────────────────
 function showImgPopup(src,caption){
-  document.getElementById('imgPopSrc').src=src;
+  document.getElementById('imgPopSrc').src=src;zoomReset();
   document.getElementById('imgPopCap').textContent=caption||'';
   document.getElementById('imgPopOv').style.display='flex';
 }
-function closeImgPopup(){document.getElementById('imgPopOv').style.display='none';}
+function closeImgPopup(){document.getElementById('imgPopOv').style.display='none';zoomReset();}
+// ── ZOOM / PAN รูป ─────────────────────────────────────────────
+let zS=1,zX=0,zY=0,zPinch=0;const zPtr=new Map();
+function zClampPan(){
+  const w=document.getElementById('zoomWrap');if(!w)return;
+  const mx=(zS-1)*w.clientWidth/2,my=(zS-1)*w.clientHeight/2;
+  zX=Math.max(-mx,Math.min(mx,zX));zY=Math.max(-my,Math.min(my,zY));
+}
+function zApply(){
+  const i=document.getElementById('imgPopSrc'),w=document.getElementById('zoomWrap');if(!i||!w)return;
+  if(zS<=1){zS=1;zX=0;zY=0;}else zClampPan();
+  i.style.transform='translate('+zX+'px,'+zY+'px) scale('+zS+')';
+  document.getElementById('zoomPct').textContent=Math.round(zS*100)+'%';
+  w.style.cursor=zS>1?'grab':'zoom-in';
+}
+function zoomAt(f,cx,cy){
+  const i=document.getElementById('imgPopSrc');
+  const ns=Math.min(8,Math.max(1,zS*f)),k=ns/zS;if(k===1)return;
+  if(cx==null){zS=ns;zApply();return;}
+  const r=i.getBoundingClientRect(),ccx=r.left+r.width/2,ccy=r.top+r.height/2;
+  zX+=(cx-(cx-ccx)*k)-ccx;zY+=(cy-(cy-ccy)*k)-ccy;zS=ns;zApply();
+}
+function zoomBy(f){zoomAt(f);}
+function zoomReset(){zS=1;zX=0;zY=0;zApply();}
+(function initZoom(){
+  const w=document.getElementById('zoomWrap');if(!w)return;
+  w.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.deltaY<0?1.2:1/1.2,e.clientX,e.clientY);},{passive:false});
+  w.addEventListener('dblclick',e=>{if(zS>1)zoomReset();else zoomAt(2.5,e.clientX,e.clientY);});
+  w.addEventListener('pointerdown',e=>{w.setPointerCapture(e.pointerId);zPtr.set(e.pointerId,{x:e.clientX,y:e.clientY});if(zPtr.size===2){const [a,b]=[...zPtr.values()];zPinch=Math.hypot(a.x-b.x,a.y-b.y);}});
+  w.addEventListener('pointermove',e=>{
+    const o=zPtr.get(e.pointerId);if(!o)return;
+    const n={x:e.clientX,y:e.clientY};
+    if(zPtr.size===1){if(zS>1){zX+=n.x-o.x;zY+=n.y-o.y;zApply();}}
+    else if(zPtr.size===2){
+      zPtr.set(e.pointerId,n);const [a,b]=[...zPtr.values()],d=Math.hypot(a.x-b.x,a.y-b.y);
+      if(zPinch)zoomAt(d/zPinch,(a.x+b.x)/2,(a.y+b.y)/2);zPinch=d;return;
+    }
+    zPtr.set(e.pointerId,n);
+  });
+  const up=e=>{zPtr.delete(e.pointerId);zPinch=0;};
+  w.addEventListener('pointerup',up);w.addEventListener('pointercancel',up);
+  document.addEventListener('keydown',e=>{
+    if(document.getElementById('imgPopOv').style.display!=='flex')return;
+    if(e.key==='+'||e.key==='=')zoomBy(1.3);else if(e.key==='-')zoomBy(1/1.3);else if(e.key==='0')zoomReset();
+  });
+})();
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeImgPopup();closeThemeModal();}});
 
 // ── THEME SYSTEM (12 colors) ─────────────────────────────────────
@@ -1043,6 +1104,31 @@ function savePart(){
   closeModal();renderStats();fp();if(page===2)ft();
 }
 
+// ── ซูมรูปในการ์ด (หน้า Spare Parts) ด้วยล้อเมาส์: เลื่อนล้อ = ซูมเข้า/ออก, ขยับเมาส์ = เลื่อนดูส่วนอื่นของรูป ──
+(function initCardZoom(){
+  const g=document.getElementById('grid1');if(!g)return;
+  const zs=new WeakMap();
+  const cardImg=t=>{const c=t.closest&&t.closest('.ct');const i=c&&c.querySelector('img');return i?{c,i}:null;};
+  const origin=(c,i,e)=>{const r=c.getBoundingClientRect();i.style.transformOrigin=((e.clientX-r.left)/r.width*100)+'% '+((e.clientY-r.top)/r.height*100)+'%';};
+  const paint=(c,i,s)=>{
+    i.style.transform=s>1?'scale('+s+')':'';
+    let b=c.querySelector('.cz-badge');
+    if(s>1){if(!b){b=document.createElement('span');b.className='cz-badge';c.appendChild(b);}b.textContent='🔍 '+Math.round(s*100)+'%';}
+    else if(b)b.remove();
+  };
+  g.addEventListener('wheel',e=>{
+    const o=cardImg(e.target);if(!o)return;
+    e.preventDefault();
+    let s=zs.get(o.i)||1;
+    s=Math.min(6,Math.max(1,s*(e.deltaY<0?1.25:1/1.25)));
+    zs.set(o.i,s);origin(o.c,o.i,e);paint(o.c,o.i,s);
+  },{passive:false});
+  g.addEventListener('mousemove',e=>{const o=cardImg(e.target);if(o&&(zs.get(o.i)||1)>1)origin(o.c,o.i,e);});
+  g.addEventListener('mouseout',e=>{
+    const o=cardImg(e.target);if(!o||o.c.contains(e.relatedTarget))return;
+    zs.set(o.i,1);paint(o.c,o.i,1);
+  });
+})();
 if(USE_DB){
   document.getElementById('dbLoading').style.display='flex';
   const rb=document.querySelector('.btn-theme[onclick="resetData()"]');if(rb)rb.style.display='none';
